@@ -568,7 +568,7 @@ class ApiNotesController extends BaseController
         return PaperworkHelpers::apiResponse(PaperworkHelpersFacade::STATUS_SUCCESS,
             $noteId);
     }
-    private function shareNote($notebookId, $noteId, $toUserId, $toUMASK)
+    public static function shareNote($notebookId, $noteId, $toUserId, $toUMASK)
     {
         //only owner of the note can share it
         $note=User::find(Auth::user()->id)->notes()
@@ -591,31 +591,35 @@ class ApiNotesController extends BaseController
             if ($toUMASK==0) {//set UMASK to 0 to stop sharing
                 $note->users()->detach($toUserId);
                 $note->save();
-                return $note;
             }
-            if ($toUser->pivot->umask!=$toUMASK) {
+            elseif ($toUser->pivot->umask!=$toUMASK) {
                 $note->users()->updateExistingPivot($toUserId, array('umask' => $toUMASK));
                 $note->save();
-                return $note;
             }
-            return $note;
         }
-        if (is_null($toUser)) {
+        else {
             $note->users()->attach($toUserId, array('umask' => $toUMASK)); //add user
             // return PaperworkHelpers::apiResponse(PaperworkHelpersFacade::STATUS_NOTFOUND, array('item'=>'user'));
             $note->save();
-            return $note;
         }
+        return $note;
     }
-    public function share($notebookId, $noteId, $toUserId, $toUMASK)
+    public function share($notebookId, $noteId)
     {
+        $validator=Validator::make(Input::all(), ["ids" => "required", "umasks" => "required"]) ;
+        $toUserIds=[];
+        $toUMASKs=[];
+        if($validator->passes()){
+          $data=Input::json();
+          $toUserIds=$data->get('ids');
+          $toUMASKs=$data->get('umasks');
+        }
+        else{
+          return PaperworkHelpers::apiResponse(PaperworkHelpersFacade::STATUS_ERROR,$validator->getMessageBag()->toArray());
+        }
         $noteIds   =
             explode(PaperworkHelpersFacade::MULTIPLE_REST_RESOURCE_DELIMITER,
                 $noteId);
-        $toUserIds = explode(PaperworkHelpersFacade::MULTIPLE_REST_RESOURCE_DELIMITER,
-                $toUserId);
-        $toUMASKs=explode(PaperworkHelpersFacade::MULTIPLE_REST_RESOURCE_DELIMITER,
-                $toUMASK);
         if (count($toUserIds)!=count($toUMASKs)) {//as much toUsers as toUmasks, if not raise an Error.
             return PaperworkHelpers::apiResponse(PaperworkHelpersFacade::STATUS_ERROR, array('error_id' => $noteId));
         }
@@ -623,7 +627,7 @@ class ApiNotesController extends BaseController
         $status    = PaperworkHelpersFacade::STATUS_SUCCESS;
         foreach ($noteIds as $singleNoteId) {
             for ($i=0; $i<count($toUserIds); $i++) {//adding a loop to share with multiple users
-                $tmp = $this->shareNote($notebookId, $singleNoteId, $toUserIds[$i], $toUMASKs[$i]);
+                $tmp = shareNote($notebookId, $singleNoteId, $toUserIds[$i], $toUMASKs[$i]);
                 if (is_null($tmp)) {
                     $status      = PaperworkHelpersFacade::STATUS_ERROR;
                     $responses[] = array('error_id' => $singleNoteId, 'error_user' => $toUserIds[$i]);

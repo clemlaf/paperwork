@@ -12,8 +12,8 @@ angular.module('paperworkNotes').factory('NotebooksService',
       NetService.apiPut('/notebooks/' + notebookId, data, callback);
     };
 
-    paperworkNotebooksServiceFactory.shareNotebook = function(notebookId, toUserId, toUMASK, callback) {
-      NetService.apiGet('/notebooks/' + notebookId+'/share/'+toUserId+'/'+toUMASK, function(status,data){
+    paperworkNotebooksServiceFactory.shareNotebook = function(notebookId, toUserId, toUMASK, propagationToNotes, callback) {
+      NetService.apiPost('/notebooks/' + notebookId+'/share',{'ids':toUserId,'umasks':toUMASK, 'propagate':propagationToNotes}, function(status,data){
         if (status==200) {
           if(typeof callback != "undefined") {
             callback(notebookId);
@@ -127,6 +127,48 @@ angular.module('paperworkNotes').factory('NotebooksService',
     paperworkNotebooksServiceFactory.updateCollection = function(collectionId, data, callback) {
         NetService.apiPost('/notebooks/collections/' + collectionId + '/edit', data, callback);
     };
+
+    paperworkNotebooksServiceFactory.getUsers = function (notebookId, propagationToNotes, update){
+      if(typeof $rootScope.i18n != "undefined")
+      $rootScope.umasks=[{'name':$rootScope.i18n.keywords.not_shared, 'value':0},
+      {'name':$rootScope.i18n.keywords.read_only, 'value':4},
+      {'name':$rootScope.i18n.keywords.read_write, 'value':6}];
+      $rootScope.showWarningNotebook=false;
+      $rootScope.showWarningNotes=false;
+      NetService.apiGet('/users/notebooks/'+notebookId, function(status, data) {
+        if(status == 200) {
+          if(update && $rootScope.users.length==data.response.length){
+            angular.forEach($rootScope.users,function(value,key){
+              value['owner']=data.response[key]['owner'];
+            });
+          }else{
+            $rootScope.users = data.response;
+          }
+          angular.forEach($rootScope.users, function(value,key){
+            if (value['is_current_user'] && ! value['owner']) {
+              $rootScope.showWarningNotebook=true;
+            }
+          });
+        }
+        if (propagationToNotes) {
+          noteId=[];
+          angular.forEach($rootScope.notes, function(value,key){
+            noteId.push(value['id']);
+          });
+          NetService.apiGet('/users/'+noteId, function(status, data){
+            if (status==200) {
+              angular.forEach($rootScope.users, function(value,key){
+                value['owner']=data.response[key]['owner'];
+                if (value['is_current_user'] && ! value['owner']) {
+                  $rootScope.showWarningNotes=true;
+                }
+              });
+            }
+          });
+        }
+      });
+    };
+
 
     return paperworkNotebooksServiceFactory;
   });

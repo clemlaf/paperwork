@@ -178,7 +178,7 @@ class ApiNotebooksController extends BaseController
     }
 
 
-    private function shareNotebook($notebookId, $toUserId, $toUMASK)
+    private function shareNotebook($notebookId, $toUserId, $toUMASK, $propagate)
     {
         $notebook=User::find(Auth::user()->id)->notebooks()
                         ->wherePivot('umask', '=', PaperworkHelpersFacade::UMASK_OWNER)
@@ -191,29 +191,33 @@ class ApiNotebooksController extends BaseController
         $toUser=User::find($toUserId);
         if (is_null($toUser)) {
             return null;
-        } //user with which we want to share the note doesn't exist
+        } //user with whom we want to share the note doesn't exist
         $toUser=$notebook->users()->where('users.id', '=', $toUserId)->first();
         if (!is_null($toUser)) {
             if ($toUser->pivot->umask==PaperworkHelpersFacade::UMASK_OWNER) {
                 return null;
             }
-            if ($toUMASK==0) {//set UMASK to 0 to stop sharing
+            elseif ($toUMASK==0) {//set UMASK to 0 to stop sharing
             $notebook->users()->detach($toUserId);
                 $notebook->save();
-                return $notebook;
             }
-            if ($toUser->pivot->umask!=$toUMASK) {
+            elseif ($toUser->pivot->umask!=$toUMASK) {
                 $notebook->users()->updateExistingPivot($toUserId, array('umask' => $toUMASK));
                 $notebook->save();
-                return $notebook;
             }
         }
-        if (is_null($toUser)) {
+        else {
             $notebook->users()->attach($toUserId, array('umask' => $toUMASK)); //add user
             // return PaperworkHelpers::apiResponse(PaperworkHelpersFacade::STATUS_NOTFOUND, array('item'=>'user'));
             $notebook->save();
-            return $notebook;
         }
+        if($propagate){
+          foreach ($notebook->notes as $value) {
+             if(is_null(ApiNotesController::shareNote($notebookId,$value->id,$toUserId,$toUMASK)))
+              return null;
+          }
+        }
+        return $notebook;
     }
 
     public function removeNotebookFromCollection($notebookId)
@@ -227,19 +231,28 @@ class ApiNotebooksController extends BaseController
         }
     }
 
-    public function share($notebookId, $toUserId, $toUMASK)
+    public function share($notebookId)
     {
-        $toUserIds = explode(PaperworkHelpersFacade::MULTIPLE_REST_RESOURCE_DELIMITER,
-            $toUserId);
-        $toUMASKs=explode(PaperworkHelpersFacade::MULTIPLE_REST_RESOURCE_DELIMITER,
-            $toUMASK);
+        $validator=Validator::make(Input::all(), ["ids" => "required", "umasks" => "required", "propagate" => "required|boolean"]) ;
+        $toUserIds=[];
+        $toUMASKs=[];
+        $prop=false;
+        if($validator->passes()){
+          $data=Input::json();
+          $toUserIds=$data->get('ids');
+          $toUMASKs=$data->get('umasks');
+          $prop=$data->get('propagate');
+        }
+        else{
+          return PaperworkHelpers::apiResponse(PaperworkHelpersFacade::STATUS_ERROR,$validator->getMessageBag()->toArray());
+        }
         if (count($toUserIds)!=count($toUMASKs)) {//as much toUsers as toUmasks, if not raise an Error.
             return PaperworkHelpers::apiResponse(PaperworkHelpersFacade::STATUS_ERROR, array('error_id' => $noteId));
         }
         $responses = array();
         $status    = PaperworkHelpersFacade::STATUS_SUCCESS;
         for ($i=0; $i<count($toUserIds); $i++) {//adding a loop to share with multiple users
-            $tmp = $this->shareNotebook($notebookId, $toUserIds[$i], $toUMASKs[$i]);
+            $tmp = $this->shareNotebook($notebookId, $toUserIds[$i], $toUMASKs[$i], $prop);
             if (is_null($tmp)) {
                 $status      = PaperworkHelpersFacade::STATUS_ERROR;
                 $responses[] = array('error_id' => $notebookId);

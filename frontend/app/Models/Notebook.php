@@ -24,7 +24,7 @@ class Notebook extends PaperworkModel
 
     public function notes()
     {
-        return $this->hasMany('App\Models\Note')->withTimestamps();
+        return $this->hasMany('App\Models\Note');
     }
 
     public function parents()

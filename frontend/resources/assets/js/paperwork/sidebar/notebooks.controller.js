@@ -30,47 +30,6 @@ angular.module('paperworkNotes').controller('SidebarNotebooksController',
     };
 
 
-    $scope.getUsers = function (notebookId, propagationToNotes, update){
-        if(typeof $rootScope.i18n != "undefined")
-	    $rootScope.umasks=[{'name':$rootScope.i18n.keywords.not_shared, 'value':0},
-		   {'name':$rootScope.i18n.keywords.read_only, 'value':4},
-		   {'name':$rootScope.i18n.keywords.read_write, 'value':6}];
-        $rootScope.showWarningNotebook=false;
-        $rootScope.showWarningNotes=false;
-	NetService.apiGet('/users/notebooks/'+notebookId, function(status, data) {
-        if(status == 200) {
-		if(update && $rootScope.users.length==data.response.length){
-			angular.forEach($rootScope.users,function(value,key){
-				value['owner']=data.response[key]['owner'];
-			});
-		}else{
-        	  $rootScope.users = data.response;
-		}
-          angular.forEach($rootScope.users, function(value,key){
-                if (value['is_current_user'] && ! value['owner']) {
-                  $rootScope.showWarningNotebook=true;
-                }
-            });
-        }
-        if (propagationToNotes) {
-          noteId=[];
-          angular.forEach($rootScope.notes, function(value,key){
-            noteId.push(value['id']);
-          });
-          NetService.apiGet('/users/'+noteId, function(status, data){
-            if (status==200) {
-              angular.forEach($rootScope.users, function(value,key){
-                value['owner']=data.response[key]['owner'];
-                if (value['is_current_user'] && ! value['owner']) {
-                  $rootScope.showWarningNotes=true;
-                }
-              });
-            }
-          });
-        }
-      });
-    };
-
     $scope.openNotebook = function(notebookId, type, index) {
       if(parseInt(type) == 1) {
           $scope.collectionOpen = notebookId;
@@ -281,7 +240,7 @@ angular.module('paperworkNotes').controller('SidebarNotebooksController',
       if($rootScope.menuItemNotebookClass() === 'disabled') {
         return false;
       }
-      $scope.getUsers(notebookId, $rootScope.propagationToNotes,false);
+      NotebooksService.getUsers(notebookId, $rootScope.propagationToNotes,false);
       $rootScope.modalUsersSelect({
         'notebookId': notebookId,
         'theCallback':function(notebookId,toUsers, propagationToNotes){
@@ -293,16 +252,9 @@ angular.module('paperworkNotes').controller('SidebarNotebooksController',
               toUMASK.push(user['umask']);
               }
             });
-          NotebooksService.shareNotebook(notebookId,toUserId, toUMASK, function(_notebookId){
+          NotebooksService.shareNotebook(notebookId,toUserId, toUMASK, propagationToNotes, function(_notebookId){
             $('#modalUsersNotebookSelect').modal('hide');
             $location.path("/n/"+(_notebookId));
-            if (propagationToNotes) {
-              noteId=[]
-              angular.forEach($rootScope.notes, function(value,key){
-                noteId.push(value['id']);
-              });
-              NotesService.shareNote(_notebookId,noteId,toUserId, toUMASK,function(){});
-            }
           });
           return true;
         }
@@ -315,8 +267,8 @@ angular.module('paperworkNotes').controller('SidebarNotebooksController',
 
     $scope.modalUsersNotebookSelectCheck = function(notebookId,_prop){
       $rootScope.propagationToNotes=_prop;
-      $scope.getUsers(notebookId, _prop, true);
-    }
+      NotebooksService.getUsers(notebookId, _prop, true);
+    };
 
     $scope.onDropSuccess = function(data, event) {
       NotesService.moveNote(data.notebook_id, data.id, this.notebook.id);

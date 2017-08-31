@@ -4,14 +4,14 @@ App::setLocale(PaperworkHelpers::getUiLanguageFromSession());
 
 // Route::any('notebook/{num?}', 'ApiNotebooksController@index')->where('num','([0-9]*)');
 Route::resource('notebooks', 'Api\V1\ApiNotebooksController');
-Route::get('/notebooks/{notebookId}/share/{toUserId}/{toUMASK}', 'Api\V1\ApiNotebooksController@share');
+Route::post('/notebooks/{notebookId}/share', 'Api\V1\ApiNotebooksController@share');
 Route::get('/notebooks/{notebookId}/remove-collection', 'Api\V1\ApiNotebooksController@removeNotebookFromCollection');
 Route::resource('tags', 'Api\V1\ApiTagsController');
 Route::resource('notebooks.notes', 'Api\V1\ApiNotesController');
 // I really don't know whether that's a great way to solve this...
 Route::get('/notebooks/{notebookId}/notes/{noteId}/move/{toNotebookId}', 'Api\V1\ApiNotesController@move');
 Route::get('/notebooks/{notebookId}/notes/{noteId}/tag/{toTagId}', 'Api\V1\ApiNotesController@tagNote');
-Route::get('/notebooks/{notebookId}/notes/{noteId}/share/{toUserId}/{toUMASK}', 'Api\V1\ApiNotesController@share');
+Route::post('/notebooks/{notebookId}/notes/{noteId}/share', 'Api\V1\ApiNotesController@share');
 Route::resource('notebooks.notes.versions', 'Api\V1\ApiVersionsController');
 Route::resource('notebooks.notes.versions.attachments', 'Api\V1\ApiAttachmentsController');
 Route::get('/notebooks/{notebookId}/notes/{noteId}/versions/{versionId}/attachments/{attachmentId}/raw', 'Api\V1\ApiAttachmentsController@raw');

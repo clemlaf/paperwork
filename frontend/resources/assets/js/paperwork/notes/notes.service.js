@@ -42,7 +42,7 @@ angular.module('paperworkNotes').factory('NotesService',
     };
 
     factory.shareNote = function(notebookId,noteId,toUserId,toUMASK,callback){
-      NetService.apiGet('/notebooks/'+notebookId+'/notes/'+noteId+'/share/'+toUserId+'/'+toUMASK, function(status,data){
+      NetService.apiPost('/notebooks/'+notebookId+'/notes/'+noteId+'/share/',{'ids':toUserId, 'umasks':toUMASK}, function(status,data){
         if (status==200) {
           if(typeof callback != "undefined") {
             callback(notebookId, noteId);
@@ -53,7 +53,7 @@ angular.module('paperworkNotes').factory('NotesService',
         }
       });
     };
-    
+
     factory.getNotesInNotebook = function(notebookId, callback) {
       NetService.apiGet('/notebooks/' + notebookId + '/notes', function(status, data) {
         if(status == 200) {
@@ -105,6 +105,25 @@ angular.module('paperworkNotes').factory('NotesService',
     factory.deleteNoteVersionAttachment = function(notebookId, noteId, versionId, attachmentId, callback) {
       NetService.apiDelete('/notebooks/' + notebookId + '/notes/' + noteId + '/versions/' + versionId + '/attachments/' + attachmentId, callback);
     };
+
+     factory.getUsers = function(noteId, callback){
+       $rootScope.can_share=false;
+       if(typeof $rootScope.i18n != "undefined")
+ 	         $rootScope.umasks=[{'name':$rootScope.i18n.keywords.not_shared, 'value':0},
+ 		      {'name':$rootScope.i18n.keywords.read_only, 'value':4},
+ 		       {'name':$rootScope.i18n.keywords.read_write, 'value':6}];
+ 	         NetService.apiGet('/users/'+noteId, function(status, data) {
+           if(status == 200) {
+              $rootScope.users = data.response;
+              angular.forEach(data.response,function(user,key){
+                 if (user['is_current_user'] && user['owner']) {
+                 $rootScope.can_share=true;
+              }
+             });
+           callback(noteId);
+         }
+       });
+     };
 
     return factory;
   });

@@ -136,6 +136,41 @@ angular.module('paperworkNotes').controller('SidebarManageNotebooksController',
       }
     };
 
+    $scope.modalShareNotebook = function(notebookId){
+      if($rootScope.menuItemNotebookClass() === 'disabled') {
+        return false;
+      }
+      NotebooksService.getUsers(notebookId, $rootScope.propagationToNotes,false);
+      $rootScope.modalUsersSelect({
+        'notebookId': notebookId,
+        'theCallback':function(notebookId,toUsers, propagationToNotes){
+          toUserId=[]
+          toUMASK=[]
+          angular.forEach(toUsers, function(user,key){
+              if (!user['is_current_user']) {
+              toUserId.push(user['id']);
+              toUMASK.push(user['umask']);
+              }
+            });
+          NotebooksService.shareNotebook(notebookId,toUserId, toUMASK, propagationToNotes, function(_notebookId){
+            $('#modalUsersNotebookSelect').modal('hide');
+            $location.path("/n/"+(_notebookId));
+          });
+          return true;
+        }
+      });
+
+    };
+    $scope.modalUsersNotebookSelectSubmit = function(notebookId, toUserId, propagationToNotes) {
+      $rootScope.modalMessageBox.theCallback(notebookId, toUserId, propagationToNotes);
+    };
+
+    $scope.modalUsersNotebookSelectCheck = function(notebookId,_prop){
+      $rootScope.propagationToNotes=_prop;
+      NotebooksService.getUsers(notebookId, _prop, true);
+    };
+
+
     $scope.addNotebook = function() {
 
       // build item
